@@ -29,19 +29,17 @@ sca_pip_audit:
 dast_zap:
   stage: dast
   image: docker:24
-  services:
-    - docker:24-dind
-  variables:
-    DOCKER_HOST: tcp://docker:2375
-    DOCKER_TLS_CERTDIR: ""
+  timeout: 90m
   script:
-    - docker network create zap-network
+    - docker rm -f flask-app-container zap-scan || true
+    - docker network create zap-network || true
     - docker build -t my-vulnerable-flask-app ./vulnerable_flask_app
     - docker run -d --name flask-app-container --network zap-network my-vulnerable-flask-app
     - sleep 10
     - docker run --name zap-scan --network zap-network -t ghcr.io/zaproxy/zaproxy:stable sh -c "mkdir -p /zap/wrk && zap-full-scan.py -t http://flask-app-container:5000 -I -r report.html -J report.json"
     - mkdir -p zap_reports
     - docker cp zap-scan:/zap/wrk/. zap_reports/
+    - docker rm -f flask-app-container zap-scan
   artifacts:
     when: always
     paths:
